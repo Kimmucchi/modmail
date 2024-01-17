@@ -18,6 +18,3 @@ USER modmail
 WORKDIR /modmailbot
 CMD ["python", "bot.py"]
 COPY --chown=modmail:modmail . /modmailbot
-
-FROM ghcr.io/modmail-dev/modmail@sha256:b014674c9f141a73e584b546a2ae19eb384732b1fb786639820faea2b455a7fa
-RUN pipenv install
