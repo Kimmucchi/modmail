@@ -1,5 +1,8 @@
 FROM python:3.10
 
+# Set a build argument
+ARG CACHEBUST=1
+
 RUN apt update && apt install -y g++ git && pip install --upgrade pip
 
 RUN useradd modmail
