@@ -1,20 +1,16 @@
-FROM python:3.10 as py
+FROM python:3.10
 
-FROM py as build
+RUN apt update && apt install -y g++ git && pip install --upgrade pip
 
-RUN apt update && apt install -y g++ git
+RUN useradd modmail
+USER modmail
+WORKDIR /home/modmail
 
-COPY requirements.txt /
-RUN pip install --prefix=/inst -U -r /requirements.txt
+ENV PATH="/home/modmail/.local/bin:${PATH}"
 
-FROM py
-
-COPY --from=build /inst /usr/local
+COPY --chown=modmail:modmail . .
+RUN pip install -r requirements.txt --user
 
 ENV USING_DOCKER yes
-RUN useradd --system --no-create-home modmail
-USER modmail
 
-WORKDIR /modmailbot
-CMD ["python", "bot.py"]
-COPY --chown=modmail:modmail . /modmailbot
+CMD ["python","bot.py"]
