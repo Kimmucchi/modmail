@@ -18,3 +18,5 @@ USER modmail
 WORKDIR /modmailbot
 CMD ["python", "bot.py"]
 COPY --chown=modmail:modmail . /modmailbot
+
+RUN chmod +wx /home/modmail
