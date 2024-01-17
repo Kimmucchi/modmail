@@ -1,7 +1,7 @@
 version: "3.7"
 services:
   bot:
-    image: ghcr.io/modmail-dev/modmail:master
+    image: ghcr.io/modmail-dev/modmail@sha256:b014674c9f141a73e584b546a2ae19eb384732b1fb786639820faea2b455a7fa
     restart: always
     env_file:
       - .env
