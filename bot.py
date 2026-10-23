@@ -1158,6 +1158,48 @@ class ModmailBot(commands.Bot):
 
         await self.process_commands(message)
 
+    async def relay_native_reply(self, message):
+        """Route a pinged Discord reply through the existing checked reply command."""
+        reference = message.reference
+        if reference is None or self.user not in message.mentions:
+            return False
+        if reference.channel_id != message.channel.id or not reference.message_id:
+            return False
+        thread = await self.threads.find(channel=message.channel)
+        if thread is None:
+            return False
+
+        target = reference.resolved
+        if not isinstance(target, discord.Message):
+            try:
+                target = await message.channel.fetch_message(reference.message_id)
+            except (discord.NotFound, discord.Forbidden):
+                # Never fall back to automatic relay when the target cannot be verified.
+                return True
+        if target.author.id != self.user.id:
+            return False
+
+        # Only user DM forwards qualify, not panels, notes, or staff reply embeds.
+        recipient_ids = {user.id for user in thread.recipients if user is not None}
+        for embed in target.embeds:
+            match = re.fullmatch(
+                r"https://discord(?:app)?\.com/users/(\d+)#(\d+)",
+                embed.author.url or "",
+            )
+            if (match and int(match[1]) in recipient_ids
+                    and embed.footer.text == f"Message ID: {match[2]}"):
+                break
+        else:
+            return True
+
+        # A synthetic command view preserves attachments and the original author.
+        # Bot.invoke runs the normal SUPPORTER, thread-only, and configured checks.
+        command_message = copy.copy(message)
+        command_message.content = f"<@{self.user.id}> reply {message.content}"
+        ctx = await self.get_context(command_message)
+        await self.invoke(ctx)
+        return True
+
     async def process_commands(self, message):
         if message.author.bot:
             return
@@ -1168,6 +1210,9 @@ class ModmailBot(commands.Bot):
         # Discord redacts ordinary guild messages in this mode. Do not relay
         # or store them as empty staff replies/internal transcript entries.
         if not self.intents.message_content and self.user not in message.mentions:
+            return
+
+        if await self.relay_native_reply(message):
             return
 
         ctxs = await self.get_contexts(message)

@@ -4,6 +4,10 @@ This fork disables Members, Presence, and Message Content privileged intents.
 It still uses ordinary gateway intents to receive DMs, mentions, and reactions.
 
 - Users DM the bot normally to open and continue tickets, including attachments.
+- Staff can use Discord's **Reply** action on the bot's forwarded user DM. Keep
+  the reply's mention of the bot enabled, then type and send. Text and attachments
+  use the normal checked reply command and go to the ticket recipient(s).
+  Replies to panels, notes, or staff replies do not trigger this shortcut.
 - Staff must mention the bot at the start of server commands: `@Il Dottore reply Hello`,
   `@Il Dottore close`, `@Il Dottore help`. Select the actual Discord mention.
 - Existing command permissions still apply. Mention prefixes already supported by
