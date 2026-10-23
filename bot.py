@@ -618,6 +618,15 @@ class ModmailBot(commands.Bot):
         self.log_expiry.start()
         self._started = True
 
+        # Register staff commands in the receiving server for immediate availability.
+        try:
+            self.tree.copy_global_to(guild=self.modmail_guild)
+            synced = await self.tree.sync(guild=self.modmail_guild)
+            logger.info("Synced %d application commands to guild %s: %s", len(synced),
+                        self.modmail_guild.id, ", ".join(command.name for command in synced))
+        except discord.HTTPException:
+            logger.exception("Could not sync staff slash commands.")
+
     async def convert_emoji(self, name: str) -> str:
         ctx = SimpleNamespace(bot=self, guild=self.modmail_guild)
         converter = commands.EmojiConverter()

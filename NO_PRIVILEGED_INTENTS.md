@@ -8,7 +8,11 @@ It still uses ordinary gateway intents to receive DMs, mentions, and reactions.
   the reply's mention of the bot enabled, then type and send. Text and attachments
   use the normal checked reply command and go to the ticket recipient(s).
   Replies to panels, notes, or staff replies do not trigger this shortcut.
-- Staff must mention the bot at the start of server commands: `@Il Dottore reply Hello`,
+- Staff can use `/close` in a ticket to close it and send the normal closing DM,
+  or `/silentclose` to close without a DM. Both accept an optional `reason`, use
+  the existing `close` permissions, honor required close reasons, and save the log.
+  These slash commands register in the receiving server when the bot starts.
+- For other text commands, staff must mention the bot at the start: `@Il Dottore reply Hello`,
   `@Il Dottore close`, `@Il Dottore help`. Select the actual Discord mention.
 - Existing command permissions still apply. Mention prefixes already supported by
   Modmail continue to use the existing command, snippet, and alias handlers.

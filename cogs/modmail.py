@@ -2,9 +2,11 @@ import asyncio
 import re
 from datetime import datetime, timezone
 from itertools import zip_longest
+from types import SimpleNamespace
 from typing import Optional, Union, List, Tuple, Literal
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 from discord.ext.commands.view import StringView
 from discord.ext.commands.cooldowns import BucketType
@@ -514,6 +516,49 @@ class Modmail(commands.Cog):
             await self.send_scheduled_close_message(ctx, after, silent)
 
         await thread.close(closer=ctx.author, after=close_after, message=message, silent=silent)
+
+    @app_commands.command(name="close", description="Close this Modmail ticket and notify the user.")
+    @app_commands.guild_only()
+    @app_commands.describe(reason="Optional closing message sent to the user and saved in the log.")
+    async def slash_close(self, interaction: discord.Interaction, reason: Optional[str] = None):
+        await self.close_from_interaction(interaction, silent=False, reason=reason)
+
+    @app_commands.command(name="silentclose", description="Close this Modmail ticket without notifying the user.")
+    @app_commands.guild_only()
+    @app_commands.describe(reason="Optional reason saved in the log; no closing DM is sent.")
+    async def slash_silentclose(self, interaction: discord.Interaction, reason: Optional[str] = None):
+        await self.close_from_interaction(interaction, silent=True, reason=reason)
+
+    async def close_from_interaction(self, interaction, *, silent, reason):
+        # Acknowledge before database/permission work and before closing deletes the channel.
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        if interaction.guild is None or interaction.guild != self.bot.modmail_guild:
+            return await interaction.edit_original_response(content="Use this in a Modmail ticket channel.")
+
+        ctx = SimpleNamespace(bot=self.bot, author=interaction.user,
+                              channel=interaction.channel, guild=interaction.guild)
+        # Both slash commands inherit the existing close command's configured permissions.
+        if not await checks.check_permissions(ctx, self.close.qualified_name):
+            return await interaction.edit_original_response(content="You do not have permission to close tickets.")
+        ctx.thread = await self.bot.threads.find(channel=interaction.channel)
+        if ctx.thread is None:
+            return await interaction.edit_original_response(content="This is not a Modmail ticket channel.")
+
+        reason = reason.strip() if reason else None
+        reason = reason or None
+        now = discord.utils.utcnow()
+        after = SimpleNamespace(dt=now, now=now, arg=reason) if reason else None
+        await interaction.edit_original_response(
+            content="Closing this ticket silently..." if silent else "Closing this ticket..."
+        )
+        try:
+            # Reuse the original close handler, including required reasons and normal logging.
+            await self.close.callback(self, ctx, option="silent" if silent else "", after=after)
+        except commands.BadArgument as exc:
+            await interaction.edit_original_response(content=str(exc))
+        except Exception:
+            logger.exception("Slash close failed for channel %s.", interaction.channel_id)
+            await interaction.edit_original_response(content="Closing failed. Please check the bot logs before retrying.")
 
     @staticmethod
     def parse_user_or_role(ctx, user_or_role):
