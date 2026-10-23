@@ -19,6 +19,7 @@ from lottie.importers import importers as l_importers
 from lottie.exporters import exporters as l_exporters
 
 from core.models import DMDisabled, DummyMessage, getLogger
+from core.relay_emojis import relay_embeds
 from core.time import human_timedelta
 from core.utils import (
     is_image_url,
@@ -685,7 +686,8 @@ class Thread:
         embed1 = message1.embeds[0]
         embed1.description = message
 
-        tasks = [self.bot.api.edit_message(message1.id, message), message1.edit(embed=embed1)]
+        tasks = [self.bot.api.edit_message(message1.id, message),
+                 message1.edit(embeds=relay_embeds(self.bot, message1.channel, embed1))]
         if message1.embeds[0].author.name.startswith("Persistent Note"):
             tasks += [self.bot.api.edit_note(message1.id, message)]
         else:
@@ -693,7 +695,7 @@ class Thread:
                 if m2 is not None:
                     embed2 = m2.embeds[0]
                     embed2.description = message
-                    tasks += [m2.edit(embed=embed2)]
+                    tasks += [m2.edit(embeds=relay_embeds(self.bot, m2.channel, embed2))]
 
         await asyncio.gather(*tasks)
 
@@ -795,7 +797,10 @@ class Thread:
                 # just for thread channel, we put the old message in embed field
                 embed.add_field(name="**Edited, former message:**", value=embed.description)
             embed.description = content
-            await asyncio.gather(self.bot.api.edit_message(message.id, content), msg.edit(embed=embed))
+            await asyncio.gather(
+                self.bot.api.edit_message(message.id, content),
+                msg.edit(embeds=relay_embeds(self.bot, msg.channel, embed)),
+            )
 
     async def note(
         self, message: discord.Message, persistent=False, thread_creation=False
@@ -1168,14 +1173,16 @@ class Thread:
                 for i in message.attachments:
                     files.append(await i.to_file())
 
-                msg = await destination.send(plain_message, files=files)
+                msg = await destination.send(
+                    plain_message, files=files, embeds=relay_embeds(self.bot, destination, embed)[1:]
+                )
             else:
                 # Plain to mods
                 embed.set_footer(text="[PLAIN] " + embed.footer.text)
-                msg = await destination.send(mentions, embed=embed)
+                msg = await destination.send(mentions, embeds=relay_embeds(self.bot, destination, embed))
 
         else:
-            msg = await destination.send(mentions, embed=embed)
+            msg = await destination.send(mentions, embeds=relay_embeds(self.bot, destination, embed))
 
         if additional_images:
             self.ready = False
