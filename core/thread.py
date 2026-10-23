@@ -687,7 +687,7 @@ class Thread:
         embed1.description = message
 
         tasks = [self.bot.api.edit_message(message1.id, message),
-                 message1.edit(embeds=relay_embeds(self.bot, message1.channel, embed1))]
+                 message1.edit(embeds=await relay_embeds(self.bot, message1.channel, embed1))]
         if message1.embeds[0].author.name.startswith("Persistent Note"):
             tasks += [self.bot.api.edit_note(message1.id, message)]
         else:
@@ -695,7 +695,7 @@ class Thread:
                 if m2 is not None:
                     embed2 = m2.embeds[0]
                     embed2.description = message
-                    tasks += [m2.edit(embeds=relay_embeds(self.bot, m2.channel, embed2))]
+                    tasks += [m2.edit(embeds=await relay_embeds(self.bot, m2.channel, embed2))]
 
         await asyncio.gather(*tasks)
 
@@ -799,7 +799,7 @@ class Thread:
             embed.description = content
             await asyncio.gather(
                 self.bot.api.edit_message(message.id, content),
-                msg.edit(embeds=relay_embeds(self.bot, msg.channel, embed)),
+                msg.edit(embeds=await relay_embeds(self.bot, msg.channel, embed)),
             )
 
     async def note(
@@ -1156,6 +1156,9 @@ class Thread:
         else:
             mentions = None
 
+        original_description = embed.description
+        rendered_embeds = await relay_embeds(self.bot, destination, embed)
+
         if plain:
             if from_mod and not isinstance(destination, discord.TextChannel):
                 # Plain to user
@@ -1168,21 +1171,24 @@ class Thread:
                     plain_message = f"**{embed.footer.text} "
                 else:
                     plain_message = "**"
-                plain_message += f"{embed.author.name}:** {embed.description}"
+                plain_message += f"{embed.author.name}:** "
+                # A longer imported emoji name must not push a valid plain reply over 2000.
+                description = embed.description
+                if len(plain_message) + len(description or "") > 2000:
+                    description = original_description
+                plain_message += description or ""
                 files = []
                 for i in message.attachments:
                     files.append(await i.to_file())
 
-                msg = await destination.send(
-                    plain_message, files=files, embeds=relay_embeds(self.bot, destination, embed)[1:]
-                )
+                msg = await destination.send(plain_message, files=files)
             else:
                 # Plain to mods
                 embed.set_footer(text="[PLAIN] " + embed.footer.text)
-                msg = await destination.send(mentions, embeds=relay_embeds(self.bot, destination, embed))
+                msg = await destination.send(mentions, embeds=rendered_embeds)
 
         else:
-            msg = await destination.send(mentions, embeds=relay_embeds(self.bot, destination, embed))
+            msg = await destination.send(mentions, embeds=rendered_embeds)
 
         if additional_images:
             self.ready = False

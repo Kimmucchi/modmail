@@ -47,6 +47,7 @@ from core.models import (
     getLogger,
 )
 from core.thread import ThreadManager
+from core.relay_emojis import ApplicationEmojiCache
 from core.time import human_timedelta
 from core.utils import extract_block_timestamp, normalize_alias, parse_alias, truncate, tryint, human_join
 
@@ -77,6 +78,7 @@ class ModmailBot(commands.Bot):
         super().__init__(command_prefix=None, intents=intents)  # implemented in `get_prefix`
         self.session = None
         self._api = None
+        self.relay_emoji_cache = ApplicationEmojiCache(self)
         self.formatter = SafeFormatter()
         self.loaded_cogs = ["cogs.modmail", "cogs.plugins", "cogs.utility"]
         self._connected = None
@@ -617,6 +619,8 @@ class ModmailBot(commands.Bot):
         self.autoupdate.start()
         self.log_expiry.start()
         self._started = True
+
+        await self.relay_emoji_cache.initialize()
 
         # Register staff commands in the receiving server for immediate availability.
         try:

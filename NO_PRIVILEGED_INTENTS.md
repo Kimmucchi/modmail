@@ -18,11 +18,12 @@ It still uses ordinary gateway intents to receive DMs, mentions, and reactions.
   Modmail continue to use the existing command, snippet, and alias handlers.
 - Ordinary unmentioned staff messages are not readable or included in transcripts.
   Use explicit mention commands for replies and notes; do not rely on automatic replies.
-- External custom emojis the bot cannot use get small image previews alongside the
-  relayed message, in both DMs and staff tickets. Animated emojis use GIF previews.
-  Accessible emojis remain inline. Up to nine distinct unavailable emojis are
-  previewed per message; repeats share a preview. Edits refresh these previews.
-  Select the actual emoji in Discord: plain `:name:` text has no image ID to recover.
+- External custom emojis are copied into the bot's application emoji library and
+  relayed inline at normal emoji size, including animations. Copies persist across
+  restarts and are reused in DMs, staff tickets, and edits. No preview cards are sent.
+  Unavailable/oversized images or a full library fall back to the original text.
+  Up to 20 distinct uncached emojis are attempted per message. Select the actual
+  emoji in Discord: plain `:name:` text has no image ID to recover.
 - Member lookup uses individual REST requests. Presence, automatic member join/leave
   updates, complete member listings, and cache-derived role summaries are unavailable
   or incomplete. Third-party plugins may require separate adaptation.
