@@ -1,0 +1,19 @@
+# Operating without privileged intents
+
+This fork disables Members, Presence, and Message Content privileged intents.
+It still uses ordinary gateway intents to receive DMs, mentions, and reactions.
+
+- Users DM the bot normally to open and continue tickets, including attachments.
+- Staff must mention the bot at the start of server commands: `@Il Dottore reply Hello`,
+  `@Il Dottore close`, `@Il Dottore help`. Select the actual Discord mention.
+- Existing command permissions still apply. Mention prefixes already supported by
+  Modmail continue to use the existing command, snippet, and alias handlers.
+- Ordinary unmentioned staff messages are not readable or included in transcripts.
+  Use explicit mention commands for replies and notes; do not rely on automatic replies.
+- Member lookup uses individual REST requests. Presence, automatic member join/leave
+  updates, complete member listings, and cache-derived role summaries are unavailable
+  or incomplete. Third-party plugins may require separate adaptation.
+- Upstream background autoupdates are disabled in this mode so they cannot overwrite
+  the compatibility changes. Deploy reviewed updates from this fork instead.
+
+Offline checks: `python -m unittest discover -s tests -v`.

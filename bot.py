@@ -68,9 +68,11 @@ class ModmailBot(commands.Bot):
         self.config = ConfigManager(self)
         self.config.populate_cache()
 
-        intents = discord.Intents.all()
-        if not self.config["enable_presence_intent"]:
-            intents.presences = False
+        # DMs and messages mentioning the bot remain readable without approval.
+        intents = discord.Intents.default()
+        intents.members = False
+        intents.presences = False
+        intents.message_content = False
 
         super().__init__(command_prefix=None, intents=intents)  # implemented in `get_prefix`
         self.session = None
@@ -212,10 +214,7 @@ class ModmailBot(commands.Bot):
                 self._connected = asyncio.Event()
                 self.session = ClientSession(loop=self.loop)
 
-                if self.config["enable_presence_intent"]:
-                    logger.info("Starting bot with presence intent.")
-                else:
-                    logger.info("Starting bot without presence intent.")
+                logger.info("Starting without privileged intents; use @bot command in servers.")
 
                 try:
                     await self.start(self.token)
@@ -640,6 +639,24 @@ class ModmailBot(commands.Bot):
         """
         return self.get_user(id) or await self.fetch_user(id)
 
+    async def get_or_fetch_member(self, guild, user_id):
+        """Resolve one member without relying on the privileged member cache."""
+        member = guild.get_member(user_id)
+        if member is not None:
+            return member
+        try:
+            return await guild.fetch_member(user_id)
+        except discord.NotFound:
+            return None
+
+    async def find_shared_member(self, user_id):
+        guilds = [self.guild] + [g for g in self.guilds if g.id != self.guild.id]
+        for guild in guilds:
+            member = await self.get_or_fetch_member(guild, user_id)
+            if member is not None:
+                return member
+        return None
+
     async def retrieve_emoji(self) -> typing.Tuple[str, str]:
         sent_emoji = self.config["sent_emoji"]
         blocked_emoji = self.config["blocked_emoji"]
@@ -772,16 +789,9 @@ class ModmailBot(commands.Bot):
         channel: discord.TextChannel = None,
         send_message: bool = False,
     ) -> bool:
-        member = self.guild.get_member(author.id)
+        member = await self.find_shared_member(author.id)
         if member is None:
-            # try to find in other guilds
-            for g in self.guilds:
-                member = g.get_member(author.id)
-                if member:
-                    break
-
-            if member is None:
-                logger.debug("User not in guild, %s.", author.id)
+            logger.debug("User not in guild, %s.", author.id)
 
         if member is not None:
             author = member
@@ -1155,6 +1165,11 @@ class ModmailBot(commands.Bot):
         if isinstance(message.channel, discord.DMChannel):
             return await self.process_dm_modmail(message)
 
+        # Discord redacts ordinary guild messages in this mode. Do not relay
+        # or store them as empty staff replies/internal transcript entries.
+        if not self.intents.message_content and self.user not in message.mentions:
+            return
+
         ctxs = await self.get_contexts(message)
         for ctx in ctxs:
             if ctx.command:
@@ -1311,8 +1326,10 @@ class ModmailBot(commands.Bot):
         if emoji_fmt != react_message_emoji:
             return
         channel = self.get_channel(payload.channel_id)
-        member = channel.guild.get_member(payload.user_id)
-        if member.bot:
+        member = getattr(payload, "member", None) or await self.get_or_fetch_member(
+            channel.guild, payload.user_id
+        )
+        if member is None or member.bot:
             return
         message = await channel.fetch_message(payload.message_id)
         await message.remove_reaction(payload.emoji, member)
@@ -1705,6 +1722,11 @@ class ModmailBot(commands.Bot):
         await self.wait_for_connected()
         logger.debug("Starting autoupdate loop")
 
+        if not self.intents.message_content:
+            logger.warning("Upstream autoupdates disabled to preserve no-privileged-intents support.")
+            self.autoupdate.cancel()
+            return
+
         if self.config.get("disable_autoupdates"):
             logger.warning("Autoupdates disabled.")
             self.autoupdate.cancel()
@@ -1755,7 +1777,7 @@ class ModmailBot(commands.Bot):
             else:
                 if self.config["use_nickname_channel_name"]:
                     author_member = self.guild.get_member(author.id)
-                    name = author_member.display_name.lower()
+                    name = (author_member or author).display_name.lower()
                 else:
                     name = author.name.lower()
 
