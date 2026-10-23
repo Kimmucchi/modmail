@@ -1,15 +1,15 @@
 """Relay external emojis inline using persistent application-owned copies."""
 import asyncio
 import base64
-import logging
 import re
 import time
 
 import aiohttp
 import discord
 from discord.http import Route
+from core.models import getLogger
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 MAX_IMAGE_BYTES = 256 * 1024
 EMOJI_OR_CODE = re.compile(
     r"(?P<code>```[\s\S]*?```|`[^`\n]*`)|"
